@@ -7,6 +7,8 @@ from src.constants import FaultType
 from src.scoap import Testability
 from src.gates import register_all_gates
 from src.podem import PODEM
+from src.delay import export_delay_values
+from src.true_value import export_true_values
 
 def exportTestVectors(inputFilePath: str, faultFilePath: str, testVectorsPath: str, SCOAPpath: str):
     testability_obj = Testability()
@@ -58,20 +60,40 @@ def exportTestVectors(inputFilePath: str, faultFilePath: str, testVectorsPath: s
                 SCOAPF.write(f"{testability_obj.CC_CO[net]['CC'][1]:<6}")
                 SCOAPF.write(f"{testability_obj.CC_CO[net]['CO']:<6}\n")
 
-def runExportVectors(circuitName: str):
+def run_phase_one(circuit_name: str, input_dir: str, output_dir: str) -> None:
+    input_path = os.path.join(input_dir, f"{circuit_name}_inputs_values.txt")
+    isc_path = os.path.join(input_dir, f"{circuit_name}.isc")
+    export_true_values(
+        input_path,
+        isc_path,
+        os.path.join(output_dir, f"{circuit_name}_true_values.txt"),
+    )
+    export_delay_values(
+        os.path.join(input_dir, "delay", f"{circuit_name}_inputs_values.txt"),
+        os.path.join(input_dir, "delay", f"{circuit_name}.isc"),
+        os.path.join(output_dir, f"{circuit_name}_delay.txt"),
+    )
+
+
+def run_phase_two(circuit_name: str, input_dir: str, output_dir: str) -> None:
+    exportTestVectors(
+        os.path.join(input_dir, f"{circuit_name}.isc"),
+        os.path.join(input_dir, f"{circuit_name}_fault.txt"),
+        os.path.join(output_dir, f"{circuit_name}_test_vectors.txt"),
+        os.path.join(output_dir, f"{circuit_name}_SCOAP.txt"),
+    )
+
+
+def run_all(circuit_name: str = "c5") -> None:
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    
-    input_path = os.path.join(base_dir, "data", "inputs", f"{circuitName}.isc")
-    fault_path = os.path.join(base_dir, "data", "inputs", f"{circuitName}_fault.txt")
-    vector_out_path = os.path.join(base_dir, "data", "outputs", f"{circuitName}_test_vectors.txt")
-    scoap_out_path = os.path.join(base_dir, "data", "outputs", f"{circuitName}_SCOAP.txt")
-    
-    
-    os.makedirs(os.path.dirname(vector_out_path), exist_ok=True)
-    exportTestVectors(input_path, fault_path, vector_out_path, scoap_out_path)
+    input_dir = os.path.join(base_dir, "data", "inputs")
+    output_dir = os.path.join(base_dir, "output")
+    os.makedirs(output_dir, exist_ok=True)
+    run_phase_one(circuit_name, input_dir, output_dir)
+    run_phase_two(circuit_name, input_dir, output_dir)
 
 if __name__ == "__main__":
     circuit = "c5"  # می توانید این نام را به c17 یا c432 تغییر دهید
     print(f"Running ATPG Analysis for {circuit}...")
-    runExportVectors(circuit)
-    print("Execution completed successfully. Check 'data/outputs/'")
+    run_all(circuit)
+    print("Execution completed successfully. Check 'output/'")

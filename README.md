@@ -1,58 +1,117 @@
-# Automated Test Pattern Generation with PODEM and SCOAP
+# ATPG, PODEM, and SCOAP Testability Analysis
 
 <div align="center">
-  <img src="https://img.shields.io/badge/Language-Python%203.x-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Domain-Electronic%20Design%20Automation-orange.svg" alt="Electronic Design Automation">
-  <img src="https://img.shields.io/badge/Method-PODEM%20%7C%20SCOAP-800000.svg" alt="PODEM and SCOAP">
-  <img src="https://img.shields.io/badge/Institution-Sharif%20University%20of%20Technology-800000.svg" alt="Sharif University of Technology">
+  <img src="https://img.shields.io/badge/Language-Python%203.x-blue.svg" alt="Python 3.x">
+  <img src="https://img.shields.io/badge/Domain-Digital%20Testability-orange.svg" alt="Digital testability">
+  <img src="https://img.shields.io/badge/Algorithms-PODEM%20%7C%20SCOAP-800000.svg" alt="PODEM and SCOAP">
 </div>
 
-An educational, modular Python implementation of **Automatic Test Pattern Generation (ATPG)** for combinational digital circuits. The project combines **SCOAP** testability metrics with the **PODEM** algorithm to generate input test vectors for single stuck-at faults.
+This repository contains a modular Python implementation of testability analysis for combinational digital circuits. It combines two coursework phases in one project:
 
-The implementation supports the standard five-valued fault simulation symbols and parses ISCAS benchmark netlists such as `c5`, `c17`, `c432`, `c6288`, and `c7552`.
+- **Phase one:** four-valued logic simulation and timing-aware propagation.
+- **Phase two:** SCOAP controllability/observability analysis and PODEM automatic test-pattern generation.
 
-> **Academic project:** Developed by **Mehran Taghavi** for coursework in Testability and Hardware Testing at **Sharif University of Technology**.
+The project supports ISCAS-style netlists, single stuck-at faults, and benchmark circuits such as `c1`, `c5`, `c17`, `c432`, `c6288`, and `c7552`.
 
-## Contents
+## Project Workflow
 
-- [Features](#features)
-- [How It Works](#how-it-works)
-- [Supported Logic](#supported-logic)
-- [Requirements](#requirements)
-- [Quick Start](#quick-start)
-- [Input and Output Formats](#input-and-output-formats)
-- [Repository Structure](#repository-structure)
-- [Implementation Notes and Limitations](#implementation-notes-and-limitations)
-- [Technical Report](#technical-report)
-- [License](#license)
+The single entry point runs all analyses for the selected circuit:
 
-## Features
+```text
+ISCAS netlist + input values + fault list
+                    |
+                    v
+        Phase 1: true values and delay
+                    |
+                    v
+        Phase 2: SCOAP and PODEM ATPG
+                    |
+                    v
+                 output/
+```
 
-- **PODEM ATPG:** Objective selection, SCOAP-guided backtrace, implication, XPath checking, fault detection, and backtracking.
-- **Five-valued fault logic:** `0`, `1`, `U` (unknown), `D` (good `1`, faulty `0`), and `~D` (good `0`, faulty `1`).
-- **SCOAP analysis:** Computes combinational controllability (`CC0`, `CC1`) and observability (`CO`) for the parsed circuit nodes.
-- **Logic gates:** `AND`, `OR`, `NAND`, `NOR`, `XOR`, `XNOR`, `NOT`, `BUFF`, and `BUF`.
-- **ISCAS-style input:** Reads `.isc` netlists and matching fault-list files.
-- **Generated artifacts:** Writes one test-vector table and one SCOAP matrix for each analyzed circuit.
-- **Small, separable architecture:** Parsing, gate evaluation, SCOAP computation, PODEM search, and execution flow are kept in separate modules.
+The default circuit is `c5`. Running the program creates exactly four result files:
 
-## How It Works
+```text
+output/c5_true_values.txt
+output/c5_delay.txt
+output/c5_test_vectors.txt
+output/c5_SCOAP.txt
+```
 
-For each fault, the PODEM driver follows the conventional ATPG loop:
+## Quick Start
 
-1. **Initialize** the circuit state and clear all node assignments.
-2. **XPath check** to determine whether the fault effect can still reach a primary output.
-3. **Objective selection** to excite the fault or propagate an existing D-value through the D-frontier.
-4. **Backtrace** from the objective to a primary input, using controllability values to choose assignments.
-5. **Imply** the selected input assignment through the circuit using five-valued logic.
-6. **Check detection** at a primary output.
-7. **Backtrack** and try the complementary input value when the current branch cannot produce a test.
+Requirements:
 
-The implementation uses `CC0` and `CC1` as heuristics during objective selection and backtrace. `CO` is calculated and exported as part of the SCOAP report.
+- Python 3.x
+- No third-party packages
+- Commands executed from the repository root
 
-### SCOAP example
+```powershell
+git clone https://github.com/MehranTaghavi/ATPG-PODEM_SCOAP.git
+cd ATPG-PODEM_SCOAP
+python -m src.main
+```
 
-For a two-input `AND` gate, the standard combinational controllability equations are:
+To analyze another circuit, change the `circuit` value at the bottom of [src/main.py](src/main.py):
+
+```python
+circuit = "c17"
+```
+
+The selected circuit must have the required `.isc`, input-vector, and fault-list files in `data/inputs/`. Delay-aware netlists and vectors are stored in `data/inputs/delay/`.
+
+## Source Modules
+
+| Module | Responsibility |
+| --- | --- |
+| [src/main.py](src/main.py) | Single application entry point; runs both phases and creates `output/`. |
+| [src/four_valued_logic.py](src/four_valued_logic.py) | Defines `0`, `1`, `U`, and `Z`, plus phase-one gate operations. |
+| [src/true_value.py](src/true_value.py) | Parses an ISCAS netlist and propagates combinational true values over input time steps. |
+| [src/delay.py](src/delay.py) | Propagates values through delay-annotated netlists and calculates timing-aware outputs. |
+| [src/constants.py](src/constants.py) | Defines the five-valued PODEM logic and stuck-at fault types. |
+| [src/gates.py](src/gates.py) | Implements gate evaluation and SCOAP controllability formulas. |
+| [src/scoap.py](src/scoap.py) | Parses ISCAS/fault files and calculates `CC0`, `CC1`, and `CO`. |
+| [src/podem.py](src/podem.py) | Implements objective selection, backtrace, implication, XPath checking, and backtracking. |
+
+## Phase One
+
+### True-value analysis
+
+`true_value.py` evaluates each node for every input time step using the four-valued set:
+
+| Value | Meaning |
+| --- | --- |
+| `0` | Logic zero |
+| `1` | Logic one |
+| `U` | Unknown or unassigned |
+| `Z` | High impedance |
+
+The result is written to `<circuit>_true_values.txt`.
+
+### Delay analysis
+
+`delay.py` evaluates delay-annotated ISCAS netlists. It propagates each gate's value at the appropriate time and accounts for the maximum path delay. The result is written to `<circuit>_delay.txt`.
+
+## Phase Two: SCOAP and PODEM
+
+PODEM generates test vectors for single stuck-at faults using this loop:
+
+1. Initialize the circuit state.
+2. Check whether an activation path can reach a primary output.
+3. Select an objective to excite or propagate the fault.
+4. Backtrace the objective to a primary input using controllability values.
+5. Imply the assignment through the circuit using five-valued logic.
+6. Check whether the fault is observable at a primary output.
+7. Backtrack and try the complementary assignment when necessary.
+
+SCOAP calculates:
+
+- `CC0`: difficulty of controlling a node to `0`;
+- `CC1`: difficulty of controlling a node to `1`;
+- `CO`: difficulty of observing a node at a primary output.
+
+For a two-input `AND` gate:
 
 $$
 CC0(Y) = \min(CC0(X_1), CC0(X_2)) + 1
@@ -62,66 +121,19 @@ $$
 CC1(Y) = CC1(X_1) + CC1(X_2) + 1
 $$
 
-Lower controllability values represent easier assignments. The complete theoretical background, flowcharts, and manual traces are available in the [technical report](docs/Testability_Technical_Report.pdf.pdf).
+The test-vector table is written to `<circuit>_test_vectors.txt`, and the SCOAP table is written to `<circuit>_SCOAP.txt`.
 
-## Supported Logic
+## Input Files
 
-| Symbol | Meaning                                 |
-| ------ | --------------------------------------- |
-| `0`  | Logic zero                              |
-| `1`  | Logic one                               |
-| `U`  | Unknown or unassigned value             |
-| `D`  | Good circuit`1`, faulty circuit `0` |
-| `~D` | Good circuit`0`, faulty circuit `1` |
-
-The fault model is the single stuck-at model:
-
-- `sa0`: the selected node is permanently stuck at `0`;
-- `sa1`: the selected node is permanently stuck at `1`.
-
-## Requirements
-
-- Python 3.x
-- No third-party Python packages are required.
-- Run commands from the repository root so that the `src` package can be imported correctly.
-
-## Quick Start
-
-Clone the repository and run the default `c5` analysis:
-
-```bash
-git clone <repository-url>
-cd ATPG-PODEM_SCOAP
-python -m src.main
-```
-
-The program reads:
+Standard ATPG inputs are stored in `data/inputs/`:
 
 ```text
 data/inputs/c5.isc
+data/inputs/c5_inputs_values.txt
 data/inputs/c5_fault.txt
 ```
 
-and writes:
-
-```text
-data/outputs/c5_test_vectors.txt
-data/outputs/c5_SCOAP.txt
-```
-
-To analyze another circuit, change the `circuit` value near the bottom of [src/main.py](src/main.py):
-
-```python
-circuit = "c17"
-```
-
-The corresponding files must exist in `data/inputs/` using the naming convention `<circuit>.isc` and `<circuit>_fault.txt`.
-
-## Input and Output Formats
-
-### Netlist and fault list
-
-Each circuit is represented by an ISCAS-style `.isc` netlist. Its fault list contains one fault per line:
+Fault lists use one fault per line:
 
 ```text
 1 sa0
@@ -130,65 +142,46 @@ Each circuit is represented by an ISCAS-style `.isc` netlist. Its fault list con
 2 sa1
 ```
 
-The node name and fault type must match the parser's expected format. Fanout branch faults are resolved from the corresponding ISCAS branch notation.
-
-### Test-vector output
-
-The generated `<circuit>_test_vectors.txt` file contains the fault, followed by values for each primary input. A `U` means that the input is unspecified and may be assigned either binary value. `none found` indicates that the current search did not generate a test vector for that fault.
-
-Example:
-
-```text
-net     fault   1   2   4
--------------------------
-1       sa-0    1   1   1
-1       sa-1    0   1   1
-```
-
-### SCOAP output
-
-The generated `<circuit>_SCOAP.txt` file contains one row per parsed node:
-
-```text
-net     CC0   CC1   CO
---------------------------
-1       1     1     4
-2       1     1     4
-5       2     4     0
-```
-
 ## Repository Structure
 
 ```text
 ATPG-PODEM_SCOAP/
 ├── data/
-│   ├── inputs/                         # ISCAS netlists and fault lists
-│   └── outputs/                        # Generated test vectors and SCOAP tables
+│   └── inputs/
+│       ├── *.isc                         # Standard ISCAS netlists
+│       ├── *_fault.txt                   # Single stuck-at fault lists
+│       ├── *_inputs_values.txt           # Phase-one input values
+│       └── delay/                         # Delay-annotated phase-one inputs
 ├── docs/
-│   └── Testability_Technical_Repor.pdf
+│   ├── Phase1_Testability_Analysis_Report.pdf
+│   └── Testability_Technical_Report.pdf.pdf
+├── output/                                # Generated results from src.main
 ├── src/
-│   ├── constants.py                    # Logic and fault-type enumerations
-│   ├── gates.py                        # Gate evaluation and SCOAP formulas
-│   ├── scoap.py                        # Netlist parsing and CC/CO calculation
-│   ├── podem.py                        # PODEM search and five-valued implication
-│   └── main.py                         # Application entry point and file export
+│   ├── constants.py
+│   ├── four_valued_logic.py
+│   ├── true_value.py
+│   ├── delay.py
+│   ├── gates.py
+│   ├── scoap.py
+│   ├── podem.py
+│   └── main.py
+├── .gitignore
 └── README.md
 ```
 
-## Implementation Notes and Limitations
+## Reports
 
-- The current entry point selects the circuit through a variable in `src/main.py`; a command-line interface is not included yet.
-- The implementation targets combinational ISCAS-style circuits and single stuck-at faults.
-- Generated vectors are reported for the primary inputs; unspecified inputs are written as `U`.
-- No automated test suite or fault-coverage summary is currently included in the repository.
-- The current sample output contains results for `c5`; the other benchmark inputs are provided for analysis.
+- [Phase One Testability Analysis Report](docs/Phase1_Testability_Analysis_Report.pdf)
+- [PODEM and SCOAP Technical Report](docs/Testability_Technical_Report.pdf.pdf)
 
-These points describe the current project scope and are useful when comparing results with a production ATPG tool.
+## Scope and Limitations
 
-## Technical Report
+- The implementation targets combinational ISCAS-style circuits.
+- The fault model is single stuck-at `sa0` and `sa1`.
+- The current entry point selects the circuit by editing one variable in `src/main.py`.
+- No automated fault-coverage summary is generated yet.
+- No open-source license has been declared for this academic repository.
 
-The detailed derivations, algorithm flowcharts, and worked examples are available in the [Testability Technical Report](docs/Testability_Technical_Report.pdf.pdf).
+## Author
 
-## License
-
-No open-source license has been declared yet. Until a license is added, the repository should be treated as **all rights reserved**.
+Developed by **Mehran Taghavi** as part of Testability and Hardware Testing coursework at **Sharif University of Technology**.
