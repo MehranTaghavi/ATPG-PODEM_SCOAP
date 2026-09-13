@@ -1,0 +1,7 @@
+# This project uses only the Python standard library (enum, itertools, copy,
+# math, os, re) -- no third-party packages are required.
+#
+# This file is kept intentionally empty (aside from this note) so that the
+# standard `pip install -r requirements.txt` workflow still works for anyone
+# setting up the project, and so it's explicit -- rather than left
+# unanswered -- that there are no external dependencies to install.
