@@ -6,6 +6,10 @@
   <img src="https://img.shields.io/badge/Algorithms-PODEM%20%7C%20SCOAP-800000.svg" alt="PODEM and SCOAP">
 </div>
 
+<p align="center">
+  <img src="docs/images/PODEM.png" alt="Hardware test analysis project with Python" width="100%">
+</p>
+
 This repository contains a modular Python implementation of testability analysis for combinational digital circuits. It combines two coursework phases in one project:
 
 - **Phase one:** four-valued logic simulation and timing-aware propagation.
