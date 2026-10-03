@@ -3,6 +3,7 @@ main.py
 Main entry point for generating Test Vectors and SCOAP analysis matrices.
 """
 import os
+import argparse
 from src.constants import FaultType
 from src.scoap import Testability
 from src.gates import register_all_gates
@@ -14,7 +15,7 @@ def exportTestVectors(inputFilePath: str, faultFilePath: str, testVectorsPath: s
     testability_obj = Testability()
     register_all_gates(testability_obj)
     podem_obj = PODEM(testability_obj)
-
+    
     with open(inputFilePath, 'r') as inputFile, open(faultFilePath, 'r') as faultFile:
         faultListToprint = []
         for line in faultFile.readlines():
@@ -74,7 +75,6 @@ def run_phase_one(circuit_name: str, input_dir: str, output_dir: str) -> None:
         os.path.join(output_dir, f"{circuit_name}_delay.txt"),
     )
 
-
 def run_phase_two(circuit_name: str, input_dir: str, output_dir: str) -> None:
     exportTestVectors(
         os.path.join(input_dir, f"{circuit_name}.isc"),
@@ -82,7 +82,6 @@ def run_phase_two(circuit_name: str, input_dir: str, output_dir: str) -> None:
         os.path.join(output_dir, f"{circuit_name}_test_vectors.txt"),
         os.path.join(output_dir, f"{circuit_name}_SCOAP.txt"),
     )
-
 
 def run_all(circuit_name: str = "c5") -> None:
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -93,7 +92,25 @@ def run_all(circuit_name: str = "c5") -> None:
     run_phase_two(circuit_name, input_dir, output_dir)
 
 if __name__ == "__main__":
-    circuit = "c5"  # می توانید این نام را به c17 یا c432 تغییر دهید
-    print(f"Running ATPG Analysis for {circuit}...")
-    run_all(circuit)
-    print("Execution completed successfully. Check 'output/'")
+    parser = argparse.ArgumentParser(
+        description="ATPG using PODEM and SCOAP for ISCAS combinational circuits.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "-c", "--circuit", 
+        type=str, 
+        default="c5", 
+        help="Name of the ISCAS circuit to analyze (e.g., c5, c17, c432)"
+    )
+    
+    args = parser.parse_args()
+    
+    print(f"[*] Running ATPG Analysis for circuit: {args.circuit}...")
+    try:
+        run_all(args.circuit)
+        print("[+] Execution completed successfully. Check the 'output/' directory.")
+    except FileNotFoundError as e:
+        print(f"[-] Error: Required input files for circuit '{args.circuit}' were not found.")
+        print(f"    {e}")
+    except Exception as e:
+        print(f"[-] An unexpected error occurred during execution: {e}")
